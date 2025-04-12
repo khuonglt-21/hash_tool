@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\*\shell\Calculate Hash]
+@="Calculate Hash..."
+
+[HKEY_CLASSES_ROOT\*\shell\Calculate Hash\command]
+@="\"C:\\Users\\Admin\\Documents\\HashCalc\\dist\\hash_tool.exe\" \"%1\""
