@@ -9,6 +9,7 @@ A lightweight Windows context menu tool for quickly calculating various hash val
   - MD5
   - SHA-1
   - SHA-256
+  - CRC32
   - SHA-384
   - SHA-512
 - Saves calculated hashes to a `.txt` file.

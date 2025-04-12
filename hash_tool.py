@@ -1,4 +1,5 @@
 import hashlib
+import zlib
 import os
 import sys
 import tkinter as tk
@@ -8,9 +9,37 @@ import time
 import json
 from functools import partial
 
-# Supported algorithms
-algorithms = ['md5', 'sha1', 'sha256', 'sha384', 'sha512']
+# Supported algorithms (now includes crc32)
+algorithms = [ 'md5', 'sha1', 'sha256', 'crc32', 'sha384', 'sha512']
 BUFFER_SIZE = 4 * 1024 * 1024  # 4MB buffer for optimal performance
+
+def get_config_path():
+    """Get config file path in executable directory"""
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+    else:
+        exe_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(exe_dir, "hash_tool_config.json")
+
+def load_config():
+    """Load configuration from file"""
+    config_path = get_config_path()
+    default_config = {
+        'save_to_file': True,
+        'window_width': 1000,
+        'window_height': 500
+    }
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return default_config
+
+def save_config(config):
+    """Save configuration to file"""
+    config_path = get_config_path()
+    with open(config_path, 'w', encoding='utf-8') as f:
+        json.dump(config, f, indent=4)
 
 def setup_copy_menu(widget):
     """Setup right-click copy menu for widget"""
@@ -42,45 +71,25 @@ def setup_copy_menu(widget):
     
     return widget
 
-def get_config_path():
-    """Get config file path in executable directory"""
-    if getattr(sys, 'frozen', False):
-        exe_dir = os.path.dirname(sys.executable)
-    else:
-        exe_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(exe_dir, "hash_tool_config.json")
-
-def load_config():
-    """Load configuration from file"""
-    config_path = get_config_path()
-    default_config = {
-        'save_to_file': True,
-        'window_width': 1000,
-        'window_height': 500
-    }
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return default_config
-
-def save_config(config):
-    """Save configuration to file"""
-    config_path = get_config_path()
-    with open(config_path, 'w', encoding='utf-8') as f:
-        json.dump(config, f, indent=4)
-
 def compute_hash(path, algo, on_complete_callback):
-    """Compute hash with maximum speed"""
-    hash_obj = hashlib.new(algo)
+    """Compute hash with maximum speed (now includes CRC32)"""
     start_time = time.perf_counter()
     
-    with open(path, 'rb', buffering=BUFFER_SIZE) as f:
-        for chunk in iter(partial(f.read, BUFFER_SIZE), b''):
-            hash_obj.update(chunk)
+    if algo == 'crc32':
+        crc_value = 0
+        with open(path, 'rb', buffering=BUFFER_SIZE) as f:
+            for chunk in iter(partial(f.read, BUFFER_SIZE), b''):
+                crc_value = zlib.crc32(chunk, crc_value)
+        hash_value = f"{crc_value & 0xFFFFFFFF:08x}"  # Format as 8-digit hex
+    else:
+        hash_obj = hashlib.new(algo)
+        with open(path, 'rb', buffering=BUFFER_SIZE) as f:
+            for chunk in iter(partial(f.read, BUFFER_SIZE), b''):
+                hash_obj.update(chunk)
+        hash_value = hash_obj.hexdigest()
     
     elapsed = time.perf_counter() - start_time
-    on_complete_callback(hash_obj.hexdigest(), elapsed)
+    on_complete_callback(hash_value, elapsed)
 
 def save_hashes_to_file(file_path, filename, results):
     """Save hash results to file with UTF-8 encoding"""
@@ -154,7 +163,8 @@ def select_algorithm(file_path):
     ps_text = tk.Text(ps_frame, height=6, wrap=tk.NONE)
     ps_text.insert(tk.END, "# PowerShell verification commands:\n")
     for algo in algorithms:
-        ps_text.insert(tk.END, f"Get-FileHash -Algorithm {algo.upper()} \"{full_path}\"\n")
+        if algo != 'crc32':  # Skip CRC32 as PowerShell doesn't have native support
+            ps_text.insert(tk.END, f"Get-FileHash -Algorithm {algo.upper()} \"{full_path}\"\n")
     ps_text.config(state="disabled")
     ps_text.pack(fill=tk.X)
     setup_copy_menu(ps_text)
