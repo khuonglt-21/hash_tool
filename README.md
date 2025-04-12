@@ -49,6 +49,7 @@ A lightweight Windows context menu tool for quickly calculating various hash val
 
 - The first time you run the tool, some antivirus programs may flag or scan the file. This is expected behavior for new executables.  
   If it doesn’t run immediately, please wait a bit or try again.
+- **Tip:** After resizing the window, click the checkbox **"Save hash file"** twice to ensure the window size is remembered.
 
 ---
 
