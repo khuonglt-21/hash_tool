@@ -10,7 +10,7 @@ import json
 from functools import partial
 
 # Supported algorithms (now includes crc32)
-algorithms = [ 'md5', 'sha1', 'sha256', 'crc32', 'sha384', 'sha512']
+algorithms = ['md5', 'sha1', 'sha256', 'crc32', 'sha384', 'sha512']
 BUFFER_SIZE = 4 * 1024 * 1024  # 4MB buffer for optimal performance
 
 def get_config_path():
@@ -241,36 +241,55 @@ def select_algorithm(file_path):
             
             row = len(results)
             if algo not in result_widgets:
-                result_widgets[algo] = {
-                    'algo_label': tk.Label(
-                        scrollable_frame, 
-                        text=algo.upper(), 
-                        width=12, 
-                        anchor='w'
-                    ),
-                    'hash_label': tk.Label(
-                        scrollable_frame, 
-                        text=hash_value, 
-                        width=130, 
-                        anchor='w', 
-                        font='TkFixedFont'
-                    ),
-                    'time_label': tk.Label(
-                        scrollable_frame, 
-                        text=f"{elapsed_time:.3f}", 
-                        width=10, 
-                        anchor='w'
-                    )
-                }
-                result_widgets[algo]['algo_label'].grid(row=row, column=0, padx=5, pady=2, sticky='w')
-                result_widgets[algo]['hash_label'].grid(row=row, column=1, padx=5, pady=2, sticky='w')
-                result_widgets[algo]['time_label'].grid(row=row, column=2, padx=5, pady=2, sticky='w')
+                # Create entry frame for each result
+                entry_frame = tk.Frame(scrollable_frame)
+                entry_frame.grid(row=row, column=0, columnspan=3, sticky='ew', padx=5, pady=2)
                 
-                setup_copy_menu(result_widgets[algo]['algo_label'])
-                setup_copy_menu(result_widgets[algo]['hash_label'])
-                setup_copy_menu(result_widgets[algo]['time_label'])
+                # Algorithm label
+                algo_label = tk.Label(
+                    entry_frame,
+                    text=algo.upper(),
+                    width=12,
+                    anchor='w'
+                )
+                algo_label.pack(side=tk.LEFT)
+                
+                # Hash value label - now using Text widget for selectable text
+                hash_text = tk.Text(
+                    entry_frame,
+                    width=130,
+                    height=1,
+                    wrap=tk.NONE,
+                    font='TkFixedFont'
+                )
+                hash_text.insert('1.0', hash_value)
+                hash_text.config(state='disabled')
+                hash_text.pack(side=tk.LEFT)
+                
+                # Time label
+                time_label = tk.Label(
+                    entry_frame,
+                    text=f"{elapsed_time:.3f}",
+                    width=10,
+                    anchor='w'
+                )
+                time_label.pack(side=tk.LEFT)
+                
+                result_widgets[algo] = {
+                    'frame': entry_frame,
+                    'algo_label': algo_label,
+                    'hash_text': hash_text,
+                    'time_label': time_label
+                }
+                
+                setup_copy_menu(hash_text)
+                setup_copy_menu(algo_label)
+                setup_copy_menu(time_label)
             else:
-                result_widgets[algo]['hash_label'].config(text=hash_value)
+                result_widgets[algo]['hash_text'].config(state='normal')
+                result_widgets[algo]['hash_text'].delete('1.0', 'end')
+                result_widgets[algo]['hash_text'].insert('1.0', hash_value)
+                result_widgets[algo]['hash_text'].config(state='disabled')
                 result_widgets[algo]['time_label'].config(text=f"{elapsed_time:.3f}")
             
             if save_var.get():
@@ -305,12 +324,10 @@ def select_algorithm(file_path):
         widget = event.widget
         try:
             if isinstance(widget, tk.Text):
-                text = widget.get("sel.first", "sel.last") if widget.tag_ranges("sel") else widget.get("1.0", "end-1c")
-            else:
-                text = widget.cget("text")
-            
-            widget.clipboard_clear()
-            widget.clipboard_append(text.strip())
+                if widget.tag_ranges("sel"):
+                    text = widget.get("sel.first", "sel.last")
+                    widget.clipboard_clear()
+                    widget.clipboard_append(text.strip())
         except:
             pass
         return "break"
